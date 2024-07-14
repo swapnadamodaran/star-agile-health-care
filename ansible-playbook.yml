@@ -1,20 +1,71 @@
-- name : Configure Docker on EC2 Instances
+  - name : Configure jdk17, git, maven and docker on EC2 Instances
   hosts : all
   become: true
   connection : ssh
+  
+  vars:
+  java_version: "17"
+  maven_version: "3.9.8"
+  maven_install_dir: "/opt/maven"
+  
   tasks : 
   - name: updating apt
     command : sudo apt-get update
+    
+  - name: Update apt repository cache
+  apt:
+  update_cache: yes
+  
+  - name: Install Java 17
+  apt:
+  name: openjdk-{{ java_version }}-jdk
+  state: present
+  
+  - name: Install necessary packages for Maven
+  apt:
+  name: wget
+  state: present
+  
+  - name: Download Maven
+  get_url:
+  url: https://dlcdn.apache.org/maven/maven-3/{{ maven_version }}/binaries/apache-maven-{{ maven_version
+}}-bin.tar.gz
+  dest: /tmp/apache-maven-{{ maven_version }}-bin.tar.gz
+  - name: Extract Maven
+  unarchive:
+  src: /tmp/apache-maven-{{ maven_version }}-bin.tar.gz
+  dest: "{{ maven_install_dir }}"
+  remote_src: yes
+  creates: "{{ maven_install_dir }}/apache-maven-{{ maven_version }}"
+
+  - name: Create symlink for Maven
+  file:
+  src: "{{ maven_install_dir }}/apache-maven-{{ maven_version }}"
+  dest: "{{ maven_install_dir }}/maven"
+  state: link
 
   - name : Install Docker
     command : sudo apt-get install -y docker.io
-    become : yes
-    become_user : root
 
   - name : Start Docker Service
     command : sudo systemctl start docker
-    become : yes
-    become_user : root
 
-  - name: Deploy Docker Container
-    command: docker run -itd -p 8084:8082 shubhamkushwah123/medicure:1.0
+  - name: Set environment variables
+  blockinfile:
+  path: /etc/profile.d/maven.sh
+  create: yes
+  block: |
+  export JAVA_HOME=/usr/lib/jvm/java-{{ java_version }}-openjdk-amd64
+  export M2_HOME={{ maven_install_dir }}/maven
+  export MAVEN_HOME={{ maven_install_dir }}/maven
+  export PATH=$M2_HOME/bin:$PATH
+
+  - name: Apply environment variables
+  file:
+  path: /etc/profile.d/maven.sh
+  mode: '0755'
+  state: file
+
+  
+
+  
