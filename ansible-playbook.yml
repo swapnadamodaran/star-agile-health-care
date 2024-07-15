@@ -1,4 +1,4 @@
-  - name : Configure jdk17, git, maven and docker on EC2 Instances
+- name : Configure jdk17, git, maven and docker on EC2 Instances
   hosts : all
   become: true
   connection : ssh
